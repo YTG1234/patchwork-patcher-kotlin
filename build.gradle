@@ -6,6 +6,7 @@ plugins {
 	id 'checkstyle'
 	id 'com.jfrog.bintray' version '1.8.4'
 	id 'com.github.johnrengelman.shadow' version '6.1.0'
+    id 'org.jetbrains.kotlin.jvm' version '1.4.30-M1'
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -40,9 +41,21 @@ sourceSets {
 			runtimeClasspath += main.output
 			runtimeClasspath += sourceSets.main.runtimeClasspath
 		}
+		kotlin {
+			compileClasspath += main.output
+			compileClasspath += sourceSets.main.compileClasspath
+			runtimeClasspath += main.output
+			runtimeClasspath += sourceSets.main.runtimeClasspath
+		}
 	}
 	ui {
 		java {
+			compileClasspath += main.output
+			compileClasspath += sourceSets.main.compileClasspath
+			runtimeClasspath += main.output
+			runtimeClasspath += sourceSets.main.runtimeClasspath
+		}
+		kotlin {
 			compileClasspath += main.output
 			compileClasspath += sourceSets.main.compileClasspath
 			runtimeClasspath += main.output
@@ -60,6 +73,7 @@ repositories {
 	maven {
 		url 'https://dl.bintray.com/patchworkmc/main/'
 	}
+    maven { url 'https://dl.bintray.com/kotlin/kotlin-eap' }
 }
 
 dependencies {
@@ -98,6 +112,9 @@ dependencies {
 	// Java has it's own XML parsers, but they were made before generics and are a perfect example
 	// of awful corporate old java style.
 	implementation "org.dom4j:dom4j:2.1.3"
+
+	// kotlin go brr
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
 }
 
 task sourcesJar(type: Jar, dependsOn: classes) {
@@ -274,3 +291,13 @@ task copyIdeaFiles(type: Copy) {
 }
 
 copyIdeaFiles
+compileKotlin {
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+}
+compileTestKotlin {
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+}
