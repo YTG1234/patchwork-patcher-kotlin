@@ -152,7 +152,7 @@ task shadowCliJar(type: ShadowJar, dependsOn: shadowJar) {
 		attributes(
 				'Implementation-Title': 'Patchwork Patcher (CLI)',
 				'Implementation-Version': archiveVersion,
-				'Main-Class': "net.patchworkmc.patcher.cli.PatchworkCLI"
+				'Main-Class': "net.patchworkmc.patcher.cli.PatchworkCLIKt"
 		)
 	}
 }
