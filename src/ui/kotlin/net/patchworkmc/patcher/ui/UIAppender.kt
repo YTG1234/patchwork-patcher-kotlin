@@ -18,7 +18,7 @@ import javax.swing.text.BadLocationException
 class UIAppender private constructor(
     name: String,
     layout: Layout<*>?,
-    filter: Filter,
+    filter: Filter?,
     private val maxLines: Int,
     ignoreExceptions: Boolean
 ) : AbstractAppender(name, filter, layout, ignoreExceptions, Property.EMPTY_ARRAY) {
@@ -48,11 +48,12 @@ class UIAppender private constructor(
 
     companion object {
         private var pane: ColorPane? = null
+        @JvmStatic
         @PluginFactory
         fun createAppender(
             @PluginAttribute("name") name: String?, @PluginAttribute("maxLines") maxLines: Int,
             @PluginAttribute("ignoreExceptions") ignoreExceptions: Boolean,
-            @PluginElement("Layout") layout: Layout<*>?, @PluginElement("Filters") filter: Filter
+            @PluginElement("Layout") layout: Layout<*>?, @PluginElement("Filters") filter: Filter?
         ): UIAppender? {
             var layout = layout
             if (name == null) {
