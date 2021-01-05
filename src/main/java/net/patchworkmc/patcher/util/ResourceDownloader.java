@@ -76,7 +76,7 @@ public final class ResourceDownloader {
 		}
 
 		LOGGER.trace(": remapping Minecraft jar");
-		Patchwork.remap(this.srg, obfJar, minecraftJar);
+		Patchwork.Companion.remap(this.srg, obfJar, minecraftJar);
 	}
 
 	public void downloadForgeUniversal(Path forgeUniversalJar, String forgeVersion) throws IOException {

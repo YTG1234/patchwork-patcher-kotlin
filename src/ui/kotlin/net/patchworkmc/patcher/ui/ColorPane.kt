@@ -30,7 +30,7 @@ class ColorPane : JTextPane() {
         var aPos = 0 // current char position in addString
         var aIndex: Int // index of next Escape sequence
         var mIndex: Int // index of "m" terminating Escape sequence
-        var tmpString = ""
+        var tmpString: String
         val addString = remaining + s
         remaining = ""
         if (addString.isNotEmpty()) {
