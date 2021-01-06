@@ -1,7 +1,5 @@
 package net.patchworkmc.patcher.capabilityinject;
 
-import static org.objectweb.asm.Opcodes.ASM9;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,157 +19,180 @@ import net.patchworkmc.patcher.transformer.VisitorTransformer;
 import net.patchworkmc.patcher.util.LambdaVisitors;
 import net.patchworkmc.patcher.util.MinecraftVersion;
 
+import static org.objectweb.asm.Opcodes.ASM9;
+
 public class CapabilityInjectRewriter extends VisitorTransformer {
-	private static final String CAPABILITY_DESC = "(Lnet/minecraftforge/common/capabilities/Capability;)V";
-	private static final String PREFIX = "patchwork$capabilityInject$";
+    private static final String CAPABILITY_DESC = "(Lnet/minecraftforge/common/capabilities/Capability;)V";
+    private static final String PREFIX = "patchwork$capabilityInject$";
+    private final List<CapabilityInject> injects = new ArrayList<>();
+    private String className;
 
-	private String className;
-	private final List<CapabilityInject> injects = new ArrayList<>();
+    public CapabilityInjectRewriter(MinecraftVersion version, ForgeModJar jar, ClassVisitor parent, ClassPostTransformer postTransformer) {
+        super(version, jar, parent, postTransformer);
+    }
 
-	public CapabilityInjectRewriter(MinecraftVersion version, ForgeModJar jar, ClassVisitor parent, ClassPostTransformer postTransformer) {
-		super(version, jar, parent, postTransformer);
-	}
+    public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+        super.visit(version, access, name, signature, superName, interfaces);
+        this.className = name;
+    }
 
-	public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
-		super.visit(version, access, name, signature, superName, interfaces);
-		this.className = name;
-	}
+    public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
+        FieldVisitor parent = super.visitField(access, name, descriptor, signature, value);
+        return new FieldScanner(parent, access, name, descriptor);
+    }
 
-	public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
-		FieldVisitor parent = super.visitField(access, name, descriptor, signature, value);
-		return new FieldScanner(parent, access, name, descriptor);
-	}
+    public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
+        if (name.equals("patchwork$registerCapabilityInjects") || name.startsWith(PREFIX)) {
+            throw new IllegalArgumentException("Class already contained a method named " + name + ", this name is reserved by Patchwork!");
+        }
 
-	public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
-		if (name.equals("patchwork$registerCapabilityInjects") || name.startsWith(PREFIX)) {
-			throw new IllegalArgumentException("Class already contained a method named " + name + ", this name is reserved by Patchwork!");
-		}
+        MethodVisitor parent = super.visitMethod(access, name, descriptor, signature, exceptions);
+        return new MethodScanner(parent, access, name, descriptor);
+    }
 
-		MethodVisitor parent = super.visitMethod(access, name, descriptor, signature, exceptions);
-		return new MethodScanner(parent, access, name, descriptor);
-	}
+    public void visitEnd() {
+        this.generateInjectHandlers();
 
-	public void visitEnd() {
-		this.generateInjectHandlers();
+        if (!this.injects.isEmpty()) {
+            MethodVisitor register =
+                    super.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "patchwork$registerCapabilityInjects", "()V", null, null);
 
-		if (!this.injects.isEmpty()) {
-			MethodVisitor register = super.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "patchwork$registerCapabilityInjects", "()V", null, null);
+            if (register != null) {
+                this.generateInjectRegistrations(register);
+            }
 
-			if (register != null) {
-				this.generateInjectRegistrations(register);
-			}
+            this.postTransformer.makeClassPublic();
+            this.forgeModJar.addEntrypoint("patchwork:capabilityInject", this.className + "::" + "patchwork$registerCapabilityInjects");
+        }
 
-			this.postTransformer.makeClassPublic();
-			this.forgeModJar.addEntrypoint("patchwork:capabilityInject", this.className + "::" + "patchwork$registerCapabilityInjects");
-		}
+        super.visitEnd();
+    }
 
-		super.visitEnd();
-	}
+    private void generateInjectHandlers() {
+        for (CapabilityInject inject : this.injects) {
+            String descriptor = "(Lnet/minecraftforge/common/capabilities/Capability;)V";
+            String name = PREFIX + inject.getName();
 
-	private void generateInjectRegistrations(MethodVisitor method) {
-		method.visitCode();
+            if (!inject.isMethod()) {
+                MethodVisitor handler =
+                        super.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_SYNTHETIC, name, descriptor, null, null);
 
-		for (CapabilityInject inject : this.injects) {
-			// Put the event on the stack (1)
-			method.visitLdcInsn(inject.getType().getClassName());
-			method.visitMethodInsn(Opcodes.INVOKESTATIC, "net/patchworkmc/api/capability/CapabilityRegisteredCallback", "event", "(Ljava/lang/String;)Lnet/fabricmc/fabric/api/event/Event;", true);
+                if (handler != null) {
+                    handler.visitCode();
 
-			// Put our handler on the stack (2)
-			Handle handle;
+                    // Get the capability (1)
+                    handler.visitVarInsn(Opcodes.ALOAD, 0);
 
-			if (inject.isMethod()) {
-				handle = new Handle(Opcodes.H_INVOKESTATIC, this.className, inject.getName(), CAPABILITY_DESC, false);
-			} else {
-				handle = new Handle(Opcodes.H_INVOKESTATIC, this.className, PREFIX + inject.getName(), CAPABILITY_DESC, false);
-			}
+                    // Handle the capability (0)
+                    handler.visitFieldInsn(
+                            Opcodes.PUTSTATIC,
+                            this.className,
+                            inject.getName(),
+                            "Lnet/minecraftforge/common/capabilities/Capability;"
+                    );
 
-			method.visitInvokeDynamicInsn("onCapabilityRegistered", "()Lnet/patchworkmc/api/capability/CapabilityRegisteredCallback;", LambdaVisitors.METAFACTORY, Type.getMethodType(CAPABILITY_DESC), handle, Type.getMethodType(CAPABILITY_DESC));
+                    handler.visitInsn(Opcodes.RETURN);
+                    handler.visitMaxs(1, 1);
+                    handler.visitEnd();
+                }
+            }
+        }
+    }
 
-			// Register the event (0)
-			method.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "net/fabricmc/fabric/api/event/Event", "register", "(Ljava/lang/Object;)V", false);
-		}
+    private void generateInjectRegistrations(MethodVisitor method) {
+        method.visitCode();
 
-		method.visitInsn(Opcodes.RETURN);
-		method.visitMaxs(2, 0);
-		method.visitEnd();
-	}
+        for (CapabilityInject inject : this.injects) {
+            // Put the event on the stack (1)
+            method.visitLdcInsn(inject.getType().getClassName());
+            method.visitMethodInsn(
+                    Opcodes.INVOKESTATIC,
+                    "net/patchworkmc/api/capability/CapabilityRegisteredCallback",
+                    "event",
+                    "(Ljava/lang/String;)Lnet/fabricmc/fabric/api/event/Event;",
+                    true
+            );
 
-	private void generateInjectHandlers() {
-		for (CapabilityInject inject : this.injects) {
-			String descriptor = "(Lnet/minecraftforge/common/capabilities/Capability;)V";
-			String name = PREFIX + inject.getName();
+            // Put our handler on the stack (2)
+            Handle handle;
 
-			if (!inject.isMethod()) {
-				MethodVisitor handler = super.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_SYNTHETIC, name, descriptor, null, null);
+            if (inject.isMethod()) {
+                handle = new Handle(Opcodes.H_INVOKESTATIC, this.className, inject.getName(), CAPABILITY_DESC, false);
+            } else {
+                handle = new Handle(Opcodes.H_INVOKESTATIC, this.className, PREFIX + inject.getName(), CAPABILITY_DESC, false);
+            }
 
-				if (handler != null) {
-					handler.visitCode();
+            method.visitInvokeDynamicInsn(
+                    "onCapabilityRegistered",
+                    "()Lnet/patchworkmc/api/capability/CapabilityRegisteredCallback;",
+                    LambdaVisitors.METAFACTORY,
+                    Type.getMethodType(CAPABILITY_DESC),
+                    handle,
+                    Type.getMethodType(CAPABILITY_DESC)
+            );
 
-					// Get the capability (1)
-					handler.visitVarInsn(Opcodes.ALOAD, 0);
+            // Register the event (0)
+            method.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "net/fabricmc/fabric/api/event/Event", "register", "(Ljava/lang/Object;)V", false);
+        }
 
-					// Handle the capability (0)
-					handler.visitFieldInsn(Opcodes.PUTSTATIC, this.className, inject.getName(), "Lnet/minecraftforge/common/capabilities/Capability;");
+        method.visitInsn(Opcodes.RETURN);
+        method.visitMaxs(2, 0);
+        method.visitEnd();
+    }
 
-					handler.visitInsn(Opcodes.RETURN);
-					handler.visitMaxs(1, 1);
-					handler.visitEnd();
-				}
-			}
-		}
-	}
+    public List<CapabilityInject> getInjects() {
+        return this.injects;
+    }
 
-	public List<CapabilityInject> getInjects() {
-		return this.injects;
-	}
+    private class MethodScanner extends MethodVisitor {
+        private final int access;
+        private final String name;
 
-	private class MethodScanner extends MethodVisitor {
-		private final int access;
-		private final String name;
+        MethodScanner(MethodVisitor parent, int access, String name, String descriptor) {
+            super(ASM9, parent);
+            this.access = access;
+            this.name = name;
+        }
 
-		MethodScanner(MethodVisitor parent, int access, String name, String descriptor) {
-			super(ASM9, parent);
-			this.access = access;
-			this.name = name;
-		}
+        public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
+            if (descriptor.equals("Lnet/minecraftforge/common/capabilities/CapabilityInject;")) {
+                if ((this.access & Opcodes.ACC_STATIC) == 0) {
+                    Patchwork.LOGGER.error("Method " +
+                                           this.name +
+                                           " marked with an @CapabilityInject annotation was not static! All @CapabilityInject methods must be static.");
+                    return null;
+                } else {
+                    return new StringAnnotationHandler(typeStr -> injects.add(new CapabilityInject(this.name, Type.getType(typeStr), true)));
+                }
+            } else {
+                return super.visitAnnotation(descriptor, visible);
+            }
+        }
+    }
 
-		public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-			if (descriptor.equals("Lnet/minecraftforge/common/capabilities/CapabilityInject;")) {
-				if ((this.access & Opcodes.ACC_STATIC) == 0) {
-					Patchwork.LOGGER.error("Method " + this.name + " marked with an @CapabilityInject annotation was not static! All @CapabilityInject methods must be static.");
-					return null;
-				} else {
-					return new StringAnnotationHandler(
-							typeStr -> injects.add(new CapabilityInject(this.name, Type.getType(typeStr), true)));
-				}
-			} else {
-				return super.visitAnnotation(descriptor, visible);
-			}
-		}
-	}
+    private class FieldScanner extends FieldVisitor {
+        private final int access;
+        private final String name;
 
-	private class FieldScanner extends FieldVisitor {
-		private final int access;
-		private final String name;
+        FieldScanner(FieldVisitor parent, int access, String name, String descriptor) {
+            super(ASM9, parent);
+            this.access = access;
+            this.name = name;
+        }
 
-		FieldScanner(FieldVisitor parent, int access, String name, String descriptor) {
-			super(ASM9, parent);
-			this.access = access;
-			this.name = name;
-		}
-
-		public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-			if (descriptor.equals("Lnet/minecraftforge/common/capabilities/CapabilityInject;")) {
-				if ((this.access & Opcodes.ACC_STATIC) == 0) {
-					Patchwork.LOGGER.error("Field " + this.name + " marked with an @CapabilityInject annotation was not static! All @CapabilityInject fields must be static.");
-					return null;
-				} else {
-					return new StringAnnotationHandler(
-							typeStr -> injects.add(new CapabilityInject(this.name, Type.getType(typeStr), false)));
-				}
-			} else {
-				return super.visitAnnotation(descriptor, visible);
-			}
-		}
-	}
+        public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
+            if (descriptor.equals("Lnet/minecraftforge/common/capabilities/CapabilityInject;")) {
+                if ((this.access & Opcodes.ACC_STATIC) == 0) {
+                    Patchwork.LOGGER.error("Field " +
+                                           this.name +
+                                           " marked with an @CapabilityInject annotation was not static! All @CapabilityInject fields must be static.");
+                    return null;
+                } else {
+                    return new StringAnnotationHandler(typeStr -> injects.add(new CapabilityInject(this.name, Type.getType(typeStr), false)));
+                }
+            } else {
+                return super.visitAnnotation(descriptor, visible);
+            }
+        }
+    }
 }

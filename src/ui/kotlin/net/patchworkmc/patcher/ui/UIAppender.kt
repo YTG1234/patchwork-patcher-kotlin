@@ -48,6 +48,7 @@ class UIAppender private constructor(
 
     companion object {
         private var pane: ColorPane? = null
+
         @JvmStatic
         @PluginFactory
         fun createAppender(

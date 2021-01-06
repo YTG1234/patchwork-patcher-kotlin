@@ -17,7 +17,7 @@ import net.patchworkmc.patcher.Patchwork;
 import net.patchworkmc.patcher.event.initialization.EventMetaRegistrarGenerator;
 import net.patchworkmc.patcher.transformer.ClassPostTransformer;
 import net.patchworkmc.patcher.transformer.VisitorTransformer;
-import net.patchworkmc.patcher.util.LambdaVisitors;
+import net.patchworkmc.patcher.util.LambdaVisitorsKt;
 import net.patchworkmc.patcher.util.MinecraftVersion;
 
 public class EventHandlerRewriter extends VisitorTransformer {
@@ -161,7 +161,7 @@ public class EventHandlerRewriter extends VisitorTransformer {
 			staticRegistrar.visitVarInsn(Opcodes.ALOAD, 0); // Load IEventBus on to the stack (1)
 			loadParameters(staticRegistrar, subscriber); // other parameters (5)
 			// Load the Consumer onto the stack (6)
-			LambdaVisitors.visitConsumerStaticLambda(staticRegistrar, className, subscriber.getMethod(), subscriber.getMethodDescriptor(), isInterface);
+			LambdaVisitorsKt.visitConsumerStaticLambda(staticRegistrar, className, subscriber.getMethod(), subscriber.getMethodDescriptor(), isInterface);
 			// Pop eventbus and the Consumer
 
 			if (isGeneric) {
@@ -236,7 +236,7 @@ public class EventHandlerRewriter extends VisitorTransformer {
 			instanceRegistrar.visitVarInsn(Opcodes.ALOAD, 0);
 
 			// Swap the target instance with a Consumer instance (6)
-			LambdaVisitors.visitConsumerInstanceLambda(instanceRegistrar, callingOpcode, className, subscriber.getMethod(), subscriber.getMethodDescriptor(), isInterface);
+			LambdaVisitorsKt.visitConsumerInstanceLambda(instanceRegistrar, callingOpcode, className, subscriber.getMethod(), subscriber.getMethodDescriptor(), isInterface);
 
 			// Pop the eventbus, params, and the lambda. (0)
 			//

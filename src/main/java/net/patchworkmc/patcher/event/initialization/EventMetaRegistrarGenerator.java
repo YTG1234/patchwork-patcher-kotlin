@@ -9,7 +9,7 @@ import org.objectweb.asm.Type;
 import net.patchworkmc.patcher.event.EventBusSubscriber;
 import net.patchworkmc.patcher.event.EventConstants;
 import net.patchworkmc.patcher.event.SubscribingClass;
-import net.patchworkmc.patcher.util.LambdaVisitors;
+import net.patchworkmc.patcher.util.LambdaVisitorsKt;
 
 /**
  * Generates a method that registers registrars for events.
@@ -28,7 +28,7 @@ public final class EventMetaRegistrarGenerator {
 		if (subscriber.hasInstanceSubscribers()) {
 			method.visitVarInsn(Opcodes.ALOAD, 1); // Push the instance to the stack (1)
 			method.visitLdcInsn(Type.getObjectType(className)); // Push the class to the stack (2)
-			LambdaVisitors.visitBiConsumerStaticLambda(method, className, EventConstants.REGISTER_INSTANCE, EventConstants.getRegisterInstanceDesc(className), subscriber.isInterface());
+			LambdaVisitorsKt.visitBiConsumerStaticLambda(method, className, EventConstants.REGISTER_INSTANCE, EventConstants.getRegisterInstanceDesc(className), subscriber.isInterface());
 			// Pop the instance for calling, and then pop the class lambda as parameters
 			method.visitMethodInsn(Opcodes.INVOKEINTERFACE, EVENT_REGISTRAR_REGISTRY, "registerInstance", "(Ljava/lang/Class;Ljava/util/function/BiConsumer;)V", true);
 		}
@@ -37,7 +37,7 @@ public final class EventMetaRegistrarGenerator {
 			method.visitVarInsn(Opcodes.ALOAD, 1); // Push the instance to the stack (1)
 			method.visitLdcInsn(Type.getObjectType(className)); // Push the class to the stack (2)
 			// Push the lambda to the stack (3)
-			LambdaVisitors.visitConsumerStaticLambda(method, className, EventConstants.REGISTER_STATIC, EventConstants.REGISTER_STATIC_DESC, subscriber.isInterface());
+			LambdaVisitorsKt.visitConsumerStaticLambda(method, className, EventConstants.REGISTER_STATIC, EventConstants.REGISTER_STATIC_DESC, subscriber.isInterface());
 			// Pop the instance for calling, and then pop the class lambda as parameters
 			method.visitMethodInsn(Opcodes.INVOKEINTERFACE, EVENT_REGISTRAR_REGISTRY, "registerStatic", "(Ljava/lang/Class;Ljava/util/function/Consumer;)V", true);
 		}

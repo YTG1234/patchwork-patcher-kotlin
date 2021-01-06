@@ -17,7 +17,7 @@ import net.patchworkmc.patcher.Patchwork;
 import net.patchworkmc.patcher.annotation.StringAnnotationHandler;
 import net.patchworkmc.patcher.transformer.ClassPostTransformer;
 import net.patchworkmc.patcher.transformer.VisitorTransformer;
-import net.patchworkmc.patcher.util.LambdaVisitors;
+import net.patchworkmc.patcher.util.LambdaVisitorsKt;
 import net.patchworkmc.patcher.util.MinecraftVersion;
 
 /**
@@ -139,7 +139,7 @@ public class ObjectHolderRewriter extends VisitorTransformer {
 			method.visitLdcInsn(holder.getName());
 
 			// Create the consumer instance (5)
-			LambdaVisitors.visitConsumerStaticLambda(method, className, name, descriptor, false);
+			LambdaVisitorsKt.visitConsumerStaticLambda(method, className, name, descriptor, false);
 
 			// Register the listener (0)
 			method.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "net/patchworkmc/api/registries/ObjectHolderRegistry", "register", registerDescriptor, false);

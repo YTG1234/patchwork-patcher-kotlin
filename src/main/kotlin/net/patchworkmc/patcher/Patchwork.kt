@@ -7,7 +7,6 @@ import com.google.gson.JsonObject
 import net.fabricmc.tinyremapper.*
 import net.patchworkmc.manifest.accesstransformer.v2.ForgeAccessTransformer
 import net.patchworkmc.manifest.api.Remapper
-import net.patchworkmc.manifest.mod.ManifestParseException
 import net.patchworkmc.manifest.mod.ModManifest
 import net.patchworkmc.patcher.annotation.AnnotationStorage
 import net.patchworkmc.patcher.manifest.converter.accesstransformer.AccessTransformerConverter
@@ -18,14 +17,13 @@ import net.patchworkmc.patcher.mapping.remapper.PatchworkRemapper
 import net.patchworkmc.patcher.transformer.PatchworkTransformer
 import net.patchworkmc.patcher.util.MinecraftVersion
 import net.patchworkmc.patcher.util.ResourceDownloader
-import net.patchworkmc.patcher.util.VersionResolver
+import net.patchworkmc.patcher.util.getForgeVersion
 import org.apache.logging.log4j.Level
 import org.apache.logging.log4j.LogManager
 import org.apache.logging.log4j.Logger
 import java.io.File
 import java.io.IOException
 import java.net.URI
-import java.net.URISyntaxException
 import java.nio.charset.StandardCharsets
 import java.nio.file.FileSystem
 import java.nio.file.FileSystems
@@ -42,7 +40,7 @@ class Patchwork(
     private val minecraftJarSrg: Path,
     private val forgeUniversalJar: Path,
     private val tempDir: Path,
-    private val primaryMappings: IMappingProvider,
+    private val primaryMappings: IMappingProvider?,
     targetFirstMappings: IMappingProvider?
 ) {
     private val patchworkGreyscaleIcon = run {
@@ -63,7 +61,6 @@ class Patchwork(
     private val memberInfo = MemberInfo(targetFirstMappings)
     private var closed = false
 
-    @Throws(IOException::class)
     fun patchAndFinish(): Int {
         check(!closed) { "Cannot begin patching: Already patched all mods!" }
         var mods: List<ForgeModJar>
@@ -99,7 +96,6 @@ class Patchwork(
         return mods
     }
 
-    @Throws(IOException::class, ManifestParseException::class)
     private fun parseModManifest(jarPath: Path): ForgeModJar {
         val mod = jarPath.fileName.toString().split("\\.jar")[0]
         // Load metadata
@@ -128,7 +124,6 @@ class Patchwork(
         return ForgeModJar(jarPath, outputDir.resolve(jarPath.fileName), manifest, at)
     }
 
-    @Throws(IOException::class, URISyntaxException::class)
     private fun rewriteMetadata(forgeModJar: ForgeModJar) {
         val output = forgeModJar.outputPath
         if (!forgeModJar.isProcessed) {
@@ -143,7 +138,7 @@ class Patchwork(
         val mods = ModManifestConverter.convertToFabric(manifest)
         val primary = mods[0]
         val primaryModId = primary.getAsJsonPrimitive("id").asString
-        primary.add("entrypoints", forgeModJar.entrypoints)
+        primary.add("entrypoints", forgeModJar.getEntrypoints())
         val jarsArray = JsonArray()
         for (m in mods) {
             if (m !== primary) {
@@ -258,7 +253,7 @@ class Patchwork(
                     transformer.finish()
                     transformer.outputConsumer.addNonClassFiles(jar, NonClassCopyMode.FIX_META_INF, remapper)
                     transformer.closeOutputConsumer()
-                    forgeModJar.processed = true
+                    forgeModJar.isProcessed = true
                 } catch (ex: Exception) {
                     LOGGER.error("Skipping remapping mod {} due to errors:", forgeModJar.inputPath.fileName)
                     LOGGER.throwing(Level.ERROR, ex)
@@ -281,8 +276,9 @@ class Patchwork(
 
     companion object {
         // TODO use a "standard" log4j logger
-		@JvmField
-		val LOGGER: Logger = LogManager.getLogger("Patchwork")
+        @JvmField
+        val LOGGER: Logger = LogManager.getLogger("Patchwork")
+
         @Throws(IOException::class)
         fun remap(mappings: IMappingProvider, input: Path, output: Path, vararg classpath: Path) {
             var remapper: TinyRemapper? = null
@@ -334,7 +330,7 @@ class Patchwork(
             val tempDir =
                 Files.createTempDirectory(File(System.getProperty("java.io.tmpdir")).toPath(), "patchwork-patcher-")
             val downloader = ResourceDownloader(minecraftVersion)
-            val forgeVersion = VersionResolver.getForgeVersion(minecraftVersion)
+            val forgeVersion = getForgeVersion(minecraftVersion)
             val forgeUniversal = dataDir.resolve("forge-universal-$forgeVersion.jar")
             if (!Files.exists(forgeUniversal)) {
                 Files.walk(dataDir).filter { path: Path ->
@@ -360,7 +356,7 @@ class Patchwork(
             }
             val mappings = Files.createDirectories(dataDir.resolve("mappings"))
                 .resolve("voldemap-bridged-" + minecraftVersion.version + ".tiny")
-            val bridgedMappings: IMappingProvider
+            val bridgedMappings: IMappingProvider?
             if (!Files.exists(mappings)) {
                 if (!mappingsCached) {
                     LOGGER.warn("Mappings not cached, downloading!")

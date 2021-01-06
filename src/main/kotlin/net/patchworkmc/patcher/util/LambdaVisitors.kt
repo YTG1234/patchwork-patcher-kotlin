@@ -11,11 +11,13 @@ import java.util.function.BiConsumer
 import java.util.function.Consumer
 
 object LambdaVisitors {
+    @JvmField
     val METAFACTORY = Handle(
         Opcodes.H_INVOKESTATIC, "java/lang/invoke/LambdaMetafactory", "metafactory",
         "(Ljava/lang/invoke/MethodHandles\$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodHandle;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/CallSite;",
         false
     )
+
     val OBJECT_METHOD_TYPE = Type.getMethodType("(Ljava/lang/Object;)V")!!
     val DUAL_OBJECT_METHOD_TYPE = Type.getMethodType("(Ljava/lang/Object;Ljava/lang/Object;)V")!!
 }

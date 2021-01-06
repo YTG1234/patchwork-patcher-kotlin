@@ -70,19 +70,19 @@ public final class Transformers {
 	}
 
 	private static void addTransformer(MinecraftVersion start, MinecraftVersion end, VisitorConstructor constructor) {
-		visitorTransformers.put(constructor, VersionRange.ofRange(start, end));
+		visitorTransformers.put(constructor, VersionRange.Companion.ofRange(start, end));
 	}
 
 	private static void addTransformer(MinecraftVersion version, VisitorConstructor constructor) {
-		visitorTransformers.put(constructor, VersionRange.of(version));
+		visitorTransformers.put(constructor, VersionRange.Companion.of(version));
 	}
 
 	private static void addTransformer(VisitorConstructor constructor) {
-		visitorTransformers.put(constructor, VersionRange.ofAll());
+		visitorTransformers.put(constructor, VersionRange.Companion.ofAll());
 	}
 
 	private static void addTransformer(NodeConstructor nodeTransformer) {
-		nodeTransformers.put(nodeTransformer, VersionRange.ofAll());
+		nodeTransformers.put(nodeTransformer, VersionRange.Companion.ofAll());
 	}
 
 	private interface VisitorConstructor {

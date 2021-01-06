@@ -33,7 +33,7 @@ object PatchworkUI {
     private val service: ExecutorService = Executors.newScheduledThreadPool(4)
     private lateinit var oldOut: PrintStream
     private lateinit var oldErr: PrintStream
-    @Throws(Exception::class)
+
     @JvmStatic
     fun main(args: Array<String>) {
         File(root, "input").mkdirs()

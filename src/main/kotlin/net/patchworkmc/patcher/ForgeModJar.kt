@@ -12,7 +12,6 @@ open class ForgeModJar @JvmOverloads constructor(val inputPath: Path, val output
     val annotationStorage: AnnotationStorage = AnnotationStorage()
     private val entrypoints: JsonObject = JsonObject()
     var isProcessed = false
-        protected set
 
     fun addEntrypoint(key: String, value: String) {
         var mutableValue = value
