@@ -8,13 +8,13 @@ class AnnotationStorage {
     private class Entry(
         var annotationType: String,
         var targetType: ElementType,
-        var targetInClass: String,
-        var target: String
+        var targetInClass: String?,
+        var target: String?
     )
 
     private val entries = ArrayList<Entry>()
 
-    fun acceptClassAnnotation(annotation: String, targetClass: String) {
+    fun acceptClassAnnotation(annotation: String, targetClass: String?) {
         entries.add(Entry(annotation, ElementType.TYPE, targetClass, targetClass))
     }
 

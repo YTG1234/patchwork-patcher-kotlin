@@ -29,7 +29,7 @@ class AnnotationProcessor(
         forgeModJar.annotationStorage.acceptClassAnnotation(descriptor, className)
 
         return when {
-            descriptor == "Lnet/minecraftforge/fml/common/Mod;" -> ForgeModAnnotationHandler(forgeModJar, className, postTransformer)
+            descriptor == "Lnet/minecraftforge/fml/common/Mod;" -> ForgeModAnnotationHandler(forgeModJar, className!!, postTransformer)
             descriptor == "Lnet/minecraftforge/api/distmarker/OnlyIn;" -> OnlyInRewriter(super.visitAnnotation(OnlyInRewriter.TARGET_DESCRIPTOR, visible))
 
             descriptor == "Lmcp/MethodsReturnNonnullByDefault;" -> {
@@ -64,18 +64,18 @@ class AnnotationProcessor(
 
     override fun visitField(access: Int, name: String, descriptor: String, signature: String, value: Any): FieldVisitor {
         val parent = super.visitField(access, name, descriptor, signature, value)
-        return FieldScanner(parent, forgeModJar.annotationStorage, className, name)
+        return FieldScanner(parent, forgeModJar.annotationStorage, className!!, name)
     }
 
     override fun visitMethod(access: Int, name: String, descriptor: String, signature: String, exceptions: Array<String>): MethodVisitor {
         val parent = super.visitMethod(access, name, descriptor, signature, exceptions)
-        return MethodScanner(parent, forgeModJar.annotationStorage, className, name + descriptor)
+        return MethodScanner(parent, forgeModJar.annotationStorage, className!!, name + descriptor)
     }
 
     internal class FieldScanner(
         parent: FieldVisitor,
         private val annotationStorage: AnnotationStorage,
-        private val outerClass: String?,
+        private val outerClass: String,
         private val fieldName: String
     ) : FieldVisitor(Opcodes.ASM9, parent) {
 
@@ -111,7 +111,7 @@ class AnnotationProcessor(
     internal class MethodScanner(
         parent: MethodVisitor,
         private val annotationStorage: AnnotationStorage,
-        private val outerClass: String?,
+        private val outerClass: String,
         private val method: String
     ) : MethodVisitor(Opcodes.ASM9, parent) {
         override fun visitAnnotation(descriptor: String, visible: Boolean): AnnotationVisitor {
